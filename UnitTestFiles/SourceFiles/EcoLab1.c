@@ -76,12 +76,10 @@ int16_t EcoMain(IEcoUnknown* pIUnk) {
     int32_t divResult;
 
     /* Переменные для тестирования агрегирования */
-    IEcoCalculatorX* pIX = 0;
-    IEcoCalculatorY* pIY = 0;
-    int32_t directAddResult;
-    int16_t directSubResult;
-    int32_t directMulResult;
-    int32_t directDivResult;
+    IEcoCalculatorX* pCalcX = 0;
+    IEcoCalculatorY* pCalcY = 0;
+    IEcoUnknown* pUnknown = 0;
+    IEcoLab1* pLab1 = 0;
 
     /* Проверка и создание системного интерфейса */
     if (pISys == 0) {
@@ -124,166 +122,150 @@ int16_t EcoMain(IEcoUnknown* pIUnk) {
         goto Release;
     }
 
-    /* ТЕСТ 1: Агрегирование через QueryInterface внешнего компонента */
-    printf("--- TEST 1: Aggregation through CEcoLab1 ---\n");
-
-    /* Получение IEcoCalculatorX через агрегирование */
-    result = pIEcoLab1->pVTbl->QueryInterface(pIEcoLab1, &IID_IEcoCalculatorX, (void**)&pIX);
-    if (result == 0 && pIX != 0) {
+    /* Тестирование подключения интерфейсов */
+    printf("=== Testing Interface Connectivity ===\n\n");
+    
+    /* Базовое получение интерфейсов от основного компонента */
+    printf("1. Basic interface acquisition:\n");
+    
+    result = pIEcoLab1->pVTbl->QueryInterface(pIEcoLab1, &IID_IEcoCalculatorX, (void**)&pCalcX);
+    if (result == 0 && pCalcX != 0) {
+        printf("   - IEcoCalculatorX acquired successfully\n");
+        printf("     18 + 12 = %d\n", pCalcX->pVTbl->Addition(pCalcX, 18, 12));
+    }
+    
+    result = pIEcoLab1->pVTbl->QueryInterface(pIEcoLab1, &IID_IEcoCalculatorY, (void**)&pCalcY);
+    if (result == 0 && pCalcY != 0) {
+        printf("   - IEcoCalculatorY acquired successfully\n");
+        printf("     9 * 8 = %d\n", pCalcY->pVTbl->Multiplication(pCalcY, 9, 8));
+    }
+    
+    /* Проверка транзитивности через IEcoUnknown */
+    printf("\n2. Interface transitiveness:\n");
+    
+    result = pIEcoLab1->pVTbl->QueryInterface(pIEcoLab1, &IID_IEcoUnknown, (void**)&pUnknown);
+    if (result == 0 && pUnknown != 0) {
+        printf("   - IEcoUnknown acquired from IEcoLab1\n");
         
-        directAddResult = pIX->pVTbl->Addition(pIX, 15, 7);
-        printf("Direct call through aggregation: 15 + 7 = %d\n", directAddResult);
+        /* Из Unknown в CalculatorX */
+        result = pUnknown->pVTbl->QueryInterface(pUnknown, &IID_IEcoCalculatorX, (void**)&pCalcX);
+        if (result == 0 && pCalcX != 0) {
+            printf("   - IEcoCalculatorX acquired from IEcoUnknown\n");
+            printf("     45 - 15 = %d\n", pCalcX->pVTbl->Subtraction(pCalcX, 45, 15));
+            pCalcX->pVTbl->Release(pCalcX);
+        }
         
-        directSubResult = pIX->pVTbl->Subtraction(pIX, 20, 8);
-        printf("Direct call through aggregation: 20 - 8 = %d\n", directSubResult);
+        pUnknown->pVTbl->Release(pUnknown);
+    }
+    
+    /* Взаимные преобразования между интерфейсами */
+    printf("\n3. Cross-interface conversion:\n");
+    
+    /* CalculatorX -> CalculatorY */
+    result = pIEcoLab1->pVTbl->QueryInterface(pIEcoLab1, &IID_IEcoCalculatorX, (void**)&pCalcX);
+    if (result == 0 && pCalcX != 0) {
+        result = pCalcX->pVTbl->QueryInterface(pCalcX, &IID_IEcoCalculatorY, (void**)&pCalcY);
+        if (result == 0 && pCalcY != 0) {
+            printf("   - IEcoCalculatorY acquired from IEcoCalculatorX\n");
+            printf("     64 / 8 = %d\n", pCalcY->pVTbl->Division(pCalcY, 64, 8));
+            pCalcY->pVTbl->Release(pCalcY);
+        }
         
-        pIX->pVTbl->Release(pIX);
-        pIX = 0;
-    } else {
-        printf("FAILED: Cannot get IEcoCalculatorX through aggregation\n");
+        /* CalculatorX -> IEcoLab1 */
+        result = pCalcX->pVTbl->QueryInterface(pCalcX, &IID_IEcoLab1, (void**)&pLab1);
+        if (result == 0 && pLab1 != 0) {
+            printf("   - IEcoLab1 acquired from IEcoCalculatorX\n");
+            pLab1->pVTbl->Release(pLab1);
+        }
+        
+        pCalcX->pVTbl->Release(pCalcX);
+    }
+    
+    /* CalculatorY -> CalculatorX */
+    result = pIEcoLab1->pVTbl->QueryInterface(pIEcoLab1, &IID_IEcoCalculatorY, (void**)&pCalcY);
+    if (result == 0 && pCalcY != 0) {
+        result = pCalcY->pVTbl->QueryInterface(pCalcY, &IID_IEcoCalculatorX, (void**)&pCalcX);
+        if (result == 0 && pCalcX != 0) {
+            printf("   - IEcoCalculatorX acquired from IEcoCalculatorY\n");
+            printf("     27 + 19 = %d\n", pCalcX->pVTbl->Addition(pCalcX, 27, 19));
+            pCalcX->pVTbl->Release(pCalcX);
+        }
+        pCalcY->pVTbl->Release(pCalcY);
     }
 
-    /* Получение IEcoCalculatorY через агрегирование */
-    result = pIEcoLab1->pVTbl->QueryInterface(pIEcoLab1, &IID_IEcoCalculatorY, (void**)&pIY);
-    if (result == 0 && pIY != 0) {
-
-        directMulResult = pIY->pVTbl->Multiplication(pIY, 6, 7);
-        printf("Direct call through aggregation: 6 * 7 = %d\n", directMulResult);
-
-        directDivResult = pIY->pVTbl->Division(pIY, 20, 4);
-        printf("Direct call through aggregation: 20 / 4 = %d\n", directDivResult);
-
-        pIY->pVTbl->Release(pIY);
-        pIY = 0;
-    } else {
-        printf("FAILED: Cannot get IEcoCalculatorY through aggregation\n");
+    /* Тестирование математических операций */
+    printf("=== Testing Calculator Operations ===\n\n");
+    
+    /* Получаем интерфейсы для тестирования */
+    result = pIEcoLab1->pVTbl->QueryInterface(pIEcoLab1, &IID_IEcoCalculatorX, (void**)&pCalcX);
+    if (result == 0 && pCalcX != 0) {
+        result = pIEcoLab1->pVTbl->QueryInterface(pIEcoLab1, &IID_IEcoCalculatorY, (void**)&pCalcY);
+        if (result == 0 && pCalcY != 0) {
+            /* Тестирование операций CalculatorX */
+            printf("CalculatorX operations:\n");
+            printf("  Addition:      23 + 17 = %d\n", pCalcX->pVTbl->Addition(pCalcX, 23, 17));
+            printf("  Subtraction:   50 - 25 = %d\n", pCalcX->pVTbl->Subtraction(pCalcX, 50, 25));
+            printf("  Addition:      100 + 200 = %d\n", pCalcX->pVTbl->Addition(pCalcX, 100, 200));
+            printf("  Subtraction:   75 - 50 = %d\n", pCalcX->pVTbl->Subtraction(pCalcX, 75, 50));
+            
+            /* Тестирование операций CalculatorY */
+            printf("\nCalculatorY operations:\n");
+            printf("  Multiplication: 7 * 6 = %d\n", pCalcY->pVTbl->Multiplication(pCalcY, 7, 6));
+            printf("  Division:       84 / 7 = %d\n", pCalcY->pVTbl->Division(pCalcY, 84, 7));
+            printf("  Multiplication: 11 * 9 = %d\n", pCalcY->pVTbl->Multiplication(pCalcY, 11, 9));
+            printf("  Division:       121 / 11 = %d\n", pCalcY->pVTbl->Division(pCalcY, 121, 11));
+            
+            /* Освобождение интерфейсов */
+            pCalcX->pVTbl->Release(pCalcX);
+            pCalcY->pVTbl->Release(pCalcY);
+        }
     }
 
-    /* ТЕСТ 2: Демонстрация работы всех калькуляторов напрямую через интерфейсную шину */
-    printf("\n--- TEST 2: Direct access to all calculators ---\n");
-
-    /* Тестирование всех CalculatorX компонентов */
-    printf("\nTesting CalculatorX components:\n");
+    /* Тестирование прямых компонентов */
+    printf("=== Testing Direct Component Access ===\n\n");
+    
+    printf("Available CalculatorX implementations:\n");
     
     /* CalculatorA */
-    result = pIBus->pVTbl->QueryComponent(pIBus, &CID_EcoCalculatorA, 0, &IID_IEcoCalculatorX, (void**)&pIX);
-    if (result == 0 && pIX != 0) {
-        printf("CalculatorA: 10 + 5 = %d, 10 - 5 = %d\n", 
-               pIX->pVTbl->Addition(pIX, 10, 5),
-               pIX->pVTbl->Subtraction(pIX, 10, 5));
-        pIX->pVTbl->Release(pIX);
-        pIX = 0;
+    result = pIBus->pVTbl->QueryComponent(pIBus, &CID_EcoCalculatorA, 0, &IID_IEcoCalculatorX, (void**)&pCalcX);
+    if (result == 0 && pCalcX != 0) {
+        printf("  CalculatorA: 15+8=%d, 40-12=%d\n", 
+               pCalcX->pVTbl->Addition(pCalcX, 15, 8),
+               pCalcX->pVTbl->Subtraction(pCalcX, 40, 12));
+        pCalcX->pVTbl->Release(pCalcX);
     }
-
+    
     /* CalculatorB */
-    result = pIBus->pVTbl->QueryComponent(pIBus, &CID_EcoCalculatorB, 0, &IID_IEcoCalculatorX, (void**)&pIX);
-    if (result == 0 && pIX != 0) {
-        printf("CalculatorB: 10 + 5 = %d, 10 - 5 = %d\n", 
-               pIX->pVTbl->Addition(pIX, 10, 5),
-               pIX->pVTbl->Subtraction(pIX, 10, 5));
-        pIX->pVTbl->Release(pIX);
-        pIX = 0;
+    result = pIBus->pVTbl->QueryComponent(pIBus, &CID_EcoCalculatorB, 0, &IID_IEcoCalculatorX, (void**)&pCalcX);
+    if (result == 0 && pCalcX != 0) {
+        printf("  CalculatorB: 22+18=%d, 60-25=%d\n", 
+               pCalcX->pVTbl->Addition(pCalcX, 22, 18),
+               pCalcX->pVTbl->Subtraction(pCalcX, 60, 25));
+        pCalcX->pVTbl->Release(pCalcX);
     }
-
-	/* CalculatorC */
-    result = pIBus->pVTbl->QueryComponent(pIBus, &CID_EcoCalculatorC, 0, &IID_IEcoCalculatorX, (void**)&pIX);
-    if (result == 0 && pIX != 0) {
-        printf("CalculatorC: 10 + 5 = %d, 10 - 5 = %d\n", 
-               pIX->pVTbl->Addition(pIX, 10, 5),
-               pIX->pVTbl->Subtraction(pIX, 10, 5));
-        pIX->pVTbl->Release(pIX);
-        pIX = 0;
-    }
-
-    /* Тестирование всех CalculatorY компонентов */
-    printf("\nTesting CalculatorY components:\n");
     
-    /* CalculatorC */
-    result = pIBus->pVTbl->QueryComponent(pIBus, &CID_EcoCalculatorC, 0, &IID_IEcoCalculatorY, (void**)&pIY);
-    if (result == 0 && pIY != 0) {
-        printf("CalculatorC: 6 * 7 = %d, 20 / 4 = %d\n", 
-               pIY->pVTbl->Multiplication(pIY, 6, 7),
-               pIY->pVTbl->Division(pIY, 20, 4));
-        pIY->pVTbl->Release(pIY);
-        pIY = 0;
-    }
-
+    printf("\nAvailable CalculatorY implementations:\n");
+    
     /* CalculatorD */
-    result = pIBus->pVTbl->QueryComponent(pIBus, &CID_EcoCalculatorD, 0, &IID_IEcoCalculatorY, (void**)&pIY);
-    if (result == 0 && pIY != 0) {
-        printf("CalculatorD: 6 * 7 = %d, 20 / 4 = %d\n", 
-               pIY->pVTbl->Multiplication(pIY, 6, 7),
-               pIY->pVTbl->Division(pIY, 20, 4));
-        pIY->pVTbl->Release(pIY);
-        pIY = 0;
+    result = pIBus->pVTbl->QueryComponent(pIBus, &CID_EcoCalculatorD, 0, &IID_IEcoCalculatorY, (void**)&pCalcY);
+    if (result == 0 && pCalcY != 0) {
+        printf("  CalculatorD: 8*7=%d, 96/12=%d\n", 
+               pCalcY->pVTbl->Multiplication(pCalcY, 8, 7),
+               pCalcY->pVTbl->Division(pCalcY, 96, 12));
+        pCalcY->pVTbl->Release(pCalcY);
     }
-
+    
     /* CalculatorE */
-    result = pIBus->pVTbl->QueryComponent(pIBus, &CID_EcoCalculatorE, 0, &IID_IEcoCalculatorY, (void**)&pIY);
-    if (result == 0 && pIY != 0) {
-        printf("CalculatorE: 6 * 7 = %d, 20 / 4 = %d\n", 
-               pIY->pVTbl->Multiplication(pIY, 6, 7),
-               pIY->pVTbl->Division(pIY, 20, 4));
-        pIY->pVTbl->Release(pIY);
-        pIY = 0;
+    result = pIBus->pVTbl->QueryComponent(pIBus, &CID_EcoCalculatorE, 0, &IID_IEcoCalculatorY, (void**)&pCalcY);
+    if (result == 0 && pCalcY != 0) {
+        printf("  CalculatorE: 13*5=%d, 65/13=%d\n", 
+               pCalcY->pVTbl->Multiplication(pCalcY, 13, 5),
+               pCalcY->pVTbl->Division(pCalcY, 65, 13));
+        pCalcY->pVTbl->Release(pCalcY);
     }
 
-    /* ТЕСТ 3: Демонстрация свойств интерфейсов - получение разных интерфейсов через QueryInterface */
-    printf("\n--- TEST 3: Interface properties demonstration ---\n");
-
-    /* Демонстрация: получение IEcoCalculatorX от компонента, реализующего IEcoCalculatorY */
-    result = pIBus->pVTbl->QueryComponent(pIBus, &CID_EcoCalculatorC, 0, &IID_IEcoCalculatorY, (void**)&pIY);
-    if (result == 0 && pIY != 0) {
-        printf("Obtained IEcoCalculatorY from CalculatorC\n");
-        
-        /* Пытаемся получить IEcoCalculatorX от того же компонента */
-        result = pIY->pVTbl->QueryInterface(pIY, &IID_IEcoCalculatorX, (void**)&pIX);
-        if (result == 0 && pIX != 0) {
-            printf("CalculatorC through IEcoCalculatorX: 8 + 3 = %d\n", pIX->pVTbl->Addition(pIX, 8, 3));
-            pIX->pVTbl->Release(pIX);
-            pIX = 0;
-        } else {
-            printf("CalculatorC does not support IEcoCalculatorX interface\n");
-        }
-        pIY->pVTbl->Release(pIY);
-        pIY = 0;
-    }
-
-    /* Аналогичный тест для CalculatorD */
-    result = pIBus->pVTbl->QueryComponent(pIBus, &CID_EcoCalculatorD, 0, &IID_IEcoCalculatorY, (void**)&pIY);
-    if (result == 0 && pIY != 0) {
-        printf("Obtained IEcoCalculatorY from CalculatorD\n");
-        
-        result = pIY->pVTbl->QueryInterface(pIY, &IID_IEcoCalculatorX, (void**)&pIX);
-        if (result == 0 && pIX != 0) {
-            printf("CalculatorD through IEcoCalculatorX: 12 + 4 = %d\n", pIX->pVTbl->Addition(pIX, 12, 4));
-            pIX->pVTbl->Release(pIX);
-            pIX = 0;
-        } else {
-            printf("CalculatorD does not support IEcoCalculatorX interface\n");
-        }
-        pIY->pVTbl->Release(pIY);
-        pIY = 0;
-    }
-
-    /* ТЕСТ 4: Тестирование функциональности внешнего компонента */
-    printf("\n--- TEST 4: CEcoLab1 functionality ---\n");
-    
-    /* Тестирование калькулятора через методы CEcoLab1 */
-    addResult = pIEcoLab1->pVTbl->CalcAdd(pIEcoLab1, 25, 17);
-    printf("CEcoLab1 Addition: 25 + 17 = %d\n", addResult);
-    
-    subResult = pIEcoLab1->pVTbl->CalcSubtract(pIEcoLab1, 50, 23);
-    printf("CEcoLab1 Subtraction: 50 - 23 = %d\n", subResult);
-
-    mulResult = pIEcoLab1->pVTbl->CalcMultiply(pIEcoLab1, 8, 9);
-    printf("CEcoLab1 Multiplication: 8 * 9 = %d\n", mulResult);
-
-    divResult = pIEcoLab1->pVTbl->CalcDivide(pIEcoLab1, 45, 5);
-    printf("CEcoLab1 Division: 45 / 5 = %d\n", divResult);
-
-    /* ТЕСТ 5: Тестирование сортировки */
-    printf("\n--- TEST 5: Bubble Sort Performance ---\n");
+    /* ТЕСТ: Тестирование сортировки */
+    printf("\n--- Bubble Sort Performance ---\n");
     for (j = 1; j <= 5; j++) {
         arrayLength = 5000 * j;
         result = pIEcoLab1->pVTbl->ArrayGen(pIEcoLab1, arrayLength, seed, &generatedArray);
@@ -316,11 +298,11 @@ int16_t EcoMain(IEcoUnknown* pIUnk) {
 Release:
 
     /* Освобождение интерфейсов агрегирования */
-    if (pIX != 0) {
-        pIX->pVTbl->Release(pIX);
+    if (pCalcX != 0) {
+        pCalcX->pVTbl->Release(pCalcX);
     }
-    if (pIY != 0) {
-        pIY->pVTbl->Release(pIY);
+    if (pCalcY != 0) {
+        pCalcY->pVTbl->Release(pCalcY);
     }
 
     /* Освобождение памяти массивов */

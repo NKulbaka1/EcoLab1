@@ -32,6 +32,10 @@ typedef struct CEcoLab1 {
     /* Таблица функций интерфейса IEcoLab1 */
     IEcoLab1VTbl* m_pVTblIEcoLab1;
 
+	IEcoCalculatorXVTbl *m_pVTblIX;
+
+    IEcoCalculatorYVTbl *m_pVTblIY;
+
     /* Счетчик ссылок */
     uint32_t m_cRef;
 
@@ -49,6 +53,8 @@ typedef struct CEcoLab1 {
 
 	/* Указатель на интерфейс IEcoCalculatorY включаемого компонента */
 	IEcoCalculatorY* m_pIY;
+
+	IEcoUnknown* m_pInnerUnknown;
 
 } CEcoLab1, *CEcoLab1Ptr;
 
